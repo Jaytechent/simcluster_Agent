@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Simcluster Agent — @HallenjayArt</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+
+  <style>
+    :root {
+      --bg:        #0a0c10;
+      --panel:     #111520;
+      --border:    #1e2535;
+      --accent:    #00e5ff;
+      --accent2:   #7c3aed;
+      --green:     #00ff88;
+      --warn:      #ffb800;
+      --danger:    #ff4455;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --radius:    10px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 60px;
+    }
+
+    /* ── header ── */
+    .header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+    .header .badge {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      color: #fff;
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: 99px;
+      margin-bottom: 14px;
+    }
+    .header h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(24px, 5vw, 36px);
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 40%, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 6px;
+    }
+    .header p {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    /* ── card ── */
+    .card {
+      width: 100%;
+      max-width: 540px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 28px 24px;
+      margin-bottom: 18px;
+    }
+    .card-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--accent);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-title .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    /* ── guide steps ── */
+    .steps { display: flex; flex-direction: column; gap: 14px; }
+    .step {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 14px;
+      background: rgba(0,229,255,0.04);
+      border: 1px solid rgba(0,229,255,0.1);
+      border-radius: 8px;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 13px;
+      color: #fff;
+    }
+    .step-body strong {
+      display: block;
+      font-size: 13px;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .step-body span {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .step-body a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .step-body a:hover { text-decoration: underline; }
+
+    /* ── onboarding section ── */
+    #onboarding-section { transition: all 0.3s; }
+    #onboarding-section.hidden { display: none; }
+
+    .input-row {
+      display: flex;
+      gap: 10px;
+      margin-top: 6px;
+    }
+    input[type="text"] {
+      flex: 1;
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      padding: 11px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus { border-color: var(--accent); }
+    input[type="text"]::placeholder { color: var(--muted); }
+
+    /* ── buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 11px 20px;
+      border-radius: 8px;
+      border: none;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) { opacity: 0.88; }
+
+    .btn-run {
+      width: 100%;
+      justify-content: center;
+      background: linear-gradient(135deg, #00b4d8, var(--green));
+      color: #0a0c10;
+      font-size: 15px;
+      padding: 15px;
+    }
+    .btn-run:hover:not(:disabled) { opacity: 0.88; }
+
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      padding: 8px 14px;
+    }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── status pill ── */
+    #status {
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+    }
+    .status-ok    { color: var(--green); }
+    .status-warn  { color: var(--warn); }
+    .status-err   { color: var(--danger); }
+    .status-info  { color: var(--accent); }
+
+    /* ── connected banner ── */
+    #connected-banner {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0,255,136,0.08);
+      border: 1px solid rgba(0,255,136,0.25);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--green);
+      margin-bottom: 14px;
+    }
+    #connected-banner.visible { display: flex; }
+    #connected-banner .pulse {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--green);
+      animation: pulse 1.8s infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.5); }
+      50%      { box-shadow: 0 0 0 6px rgba(0,255,136,0); }
+    }
+
+    /* ── logs ── */
+    #logs-wrap { position: relative; }
+    #logs {
+      background: #070910;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: #7ee787;
+      padding: 14px;
+      height: 280px;
+      overflow-y: auto;
+      font-size: 11.5px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin-top: 12px;
+    }
+    #logs .log-fatal { color: var(--danger); }
+    #logs .log-warn  { color: var(--warn); }
+    #logs .log-end   { color: var(--accent); font-weight: bold; }
+    #logs-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      margin-bottom: 0;
+    }
+    .logs-label {
+      font-family: 'Syne', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    /* ── result strip ── */
+    #result-strip {
+      display: none;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+    #result-strip.visible { display: grid; }
+    .stat-box {
+      background: rgba(0,229,255,0.05);
+      border: 1px solid rgba(0,229,255,0.12);
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-align: center;
+    }
+    .stat-box .val {
+      font-family: 'Syne', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--accent);
+      display: block;
+    }
+    .stat-box .lbl {
+      font-size: 10px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    /* ── footer ── */
+    footer {
+      margin-top: 32px;
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="badge">⚡ Agent Dashboard</div>
+    <h1>Simcluster Heartbeat</h1>
+    <p>@HallenjayArt automated daily strategy</p>
+  </div>
+
+  <!-- How to Use Guide -->
+  <div class="card">
+    <div class="card-title"><span class="dot"></span>How to Use</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <strong>First time? Connect your account</strong>
+          <span>
+            Visit <a href="https://simcluster.ai/agent/connect" target="_blank">simcluster.ai/agent/connect</a>,
+            sign in, and copy the one-time code shown on the page.
+            Paste it below and click <em>Connect</em>. You only do this once.
+          </span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <strong>Already connected? Just run the heartbeat</strong>
+          <span>
+            Your token is saved on the server. Click <em>▶ Run Heartbeat</em> 
+            to execute the full daily strategy: engage @mztacat, publish posts,
+            tip, warm up the feed, and like your own content.
+          </span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <strong>Runs automatically every 24 hours</strong>
+          <span>
+            Once connected, the scheduler fires the heartbeat daily at startup.
+            Use this dashboard to trigger a manual run or check the latest logs.
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main card -->
+  <div class="card" style="max-width:540px;width:100%;">
+
+    <!-- Connected banner (shown when token exists) -->
+    <div id="connected-banner">
+      <span class="pulse"></span>
+      <span>Token active — agent is connected to Simcluster</span>
+      <button class="btn btn-ghost" style="margin-left:auto;" onclick="showReconnect()">Reconnect</button>
+    </div>
+
+    <!-- Onboarding section (hidden once connected) -->
+    <div id="onboarding-section">
+      <div class="card-title"><span class="dot"></span>Step 1 — Connect Account</div>
+      <p style="font-size:12px; color:var(--muted); margin-bottom:14px; line-height:1.7;">
+        Get your one-time code from
+        <a href="https://simcluster.ai/agent/connect" target="_blank" style="color:var(--accent);">
+          simcluster.ai/agent/connect
+        </a>, then paste it here.
+      </p>
+      <div class="input-row">
+        <input type="text" id="code" placeholder="Paste your one-time code…" autocomplete="off" />
+        <button class="btn btn-primary" onclick="connect()" id="connect-btn">Connect</button>
+      </div>
+    </div>
+
+    <!-- Status line -->
+    <p id="status" class="status-info" style="margin-top:16px;"></p>
+
+    <!-- Run button -->
+    <div style="margin-top: 16px;">
+      <button class="btn btn-run" onclick="runHeartbeat()" id="run-btn">
+        ▶ &nbsp;Run Heartbeat
+      </button>
+    </div>
+
+    <!-- Result stats strip -->
+    <div id="result-strip">
+      <div class="stat-box"><span class="val" id="res-delta">—</span><span class="lbl">Clout Δ</span></div>
+      <div class="stat-box"><span class="val" id="res-posts">—</span><span class="lbl">Posts Made</span></div>
+      <div class="stat-box"><span class="val" id="res-tips">—</span><span class="lbl">Tips Sent (¢)</span></div>
+    </div>
+
+    <!-- Logs -->
+    <div id="logs-header">
+      <span class="logs-label">📟 Output Logs</span>
+      <button class="btn btn-ghost" onclick="clearLogs()">Clear</button>
+    </div>
+    <div id="logs-wrap">
+      <pre id="logs">Waiting for run…</pre>
+    </div>
+
+  </div>
+
+  <footer>
+    Simcluster Heartbeat &nbsp;·&nbsp;
+    <a href="https://simcluster.ai" target="_blank">simcluster.ai</a>
+  </footer>
+
+<script>
+  // ─── state ──────────────────────────────────────────────────────────────────
+  const isConnected = localStorage.getItem("simcluster_token") === "saved";
+
+  function applyConnectedState(connected) {
+    const banner    = document.getElementById('connected-banner');
+    const onboard   = document.getElementById('onboarding-section');
+    if (connected) {
+      banner.classList.add('visible');
+      onboard.classList.add('hidden');
+    } else {
+      banner.classList.remove('visible');
+      onboard.classList.remove('hidden');
+    }
+  }
+
+  // on load: check server token status
+  (async () => {
+    try {
+      const r = await fetch('/status');
+      const d = await r.json();
+      if (d.hasToken) {
+        localStorage.setItem("simcluster_token", "saved");
+        applyConnectedState(true);
+        setStatus('✅ Agent connected — ready to run', 'ok');
+      } else {
+        applyConnectedState(false);
+        setStatus('👆 Connect your account to get started', 'info');
+      }
+    } catch (_) {
+      applyConnectedState(isConnected);
+    }
+  })();
+
+  function showReconnect() {
+    document.getElementById('onboarding-section').classList.remove('hidden');
+    document.getElementById('code').focus();
+  }
+
+  // ─── helpers ────────────────────────────────────────────────────────────────
+  function setStatus(msg, type = 'info') {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = 'status-' + type;
+  }
+
+  function appendLog(line) {
+    const el = document.getElementById('logs');
+    el.textContent += line + '\n';
+    el.scrollTop = el.scrollHeight;
+  }
+
+  function clearLogs() {
+    document.getElementById('logs').textContent = '';
+    document.getElementById('result-strip').classList.remove('visible');
+  }
+
+  function setRunning(yes) {
+    const btn = document.getElementById('run-btn');
+    btn.disabled = yes;
+    btn.textContent = yes ? '⏳  Running…' : '▶  Run Heartbeat';
+  }
+
+  // ─── connect ────────────────────────────────────────────────────────────────
+  async function connect() {
+    const code = document.getElementById('code').value.trim();
+    if (!code) { setStatus('⚠️ Paste your one-time code first', 'warn'); return; }
+
+    const btn = document.getElementById('connect-btn');
+    btn.disabled = true;
+    btn.textContent = 'Connecting…';
+    setStatus('⏳ Exchanging code…', 'info');
+
+    try {
+      const res  = await fetch('/api/exchange', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        setStatus('❌ Failed: ' + (data.error || 'Unknown error'), 'err');
+        btn.disabled = false;
+        btn.textContent = 'Connect';
+        return;
+      }
+
+      localStorage.setItem("simcluster_token", "saved");
+      applyConnectedState(true);
+      setStatus('✅ Connected! You can now run the heartbeat.', 'ok');
+
+    } catch (err) {
+      setStatus('❌ Error: ' + err.message, 'err');
+      btn.disabled = false;
+      btn.textContent = 'Connect';
+    }
+  }
+
+  // ─── heartbeat ──────────────────────────────────────────────────────────────
+  async function runHeartbeat() {
+    setRunning(true);
+    setStatus('⚡ Running heartbeat…', 'info');
+    document.getElementById('logs').textContent = '';
+    document.getElementById('result-strip').classList.remove('visible');
+    appendLog('[' + new Date().toISOString() + '] Starting heartbeat run…');
+
+    try {
+      const res  = await fetch('/api/run', { method: 'POST' });
+      const data = await res.json();
+
+      // render logs
+      const logs = data.logs || [];
+      document.getElementById('logs').textContent = logs.join('\n');
+      document.getElementById('logs').scrollTop = 9999;
+
+      // render result strip
+      if (data.result) {
+        const r = data.result;
+        document.getElementById('res-delta').textContent =
+          (r.delta >= 0 ? '+' : '') + (r.delta ?? '—');
+        document.getElementById('res-posts').textContent =
+          r.posts?.length ?? '—';
+        document.getElementById('res-tips').textContent =
+          r.tipping?.totalCents ?? '—';
+        document.getElementById('result-strip').classList.add('visible');
+      }
+
+      if (!data.success && data.error === 'No bearer token stored. Complete onboarding first.') {
+        applyConnectedState(false);
+        localStorage.removeItem("simcluster_token");
+        setStatus('⚠️ No token found — please reconnect your account', 'warn');
+      } else {
+        setStatus(data.success ? '✅ Done!' : '⚠️ Completed with issues — check logs', 
+                  data.success ? 'ok' : 'warn');
+      }
+
+    } catch (err) {
+      setStatus('❌ Network error: ' + err.message, 'err');
+      appendLog('[ERROR] ' + err.message);
+    }
+
+    setRunning(false);
+  }
+</script>
+</body>
+</html>
