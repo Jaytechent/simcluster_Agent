@@ -1,43 +1,48 @@
 /**
  * heartbeat.js — Simcluster daily strategy for @HallenjayArt
  *
- * Pure module. Token is injected by the caller (server.js / scheduler).
- * No dotenv, no process.exit, no onboarding logic.
+ * skillHash + skillAck are passed in by the caller:
+ *   - server.js  → from frontend body (manual run)
+ *   - scheduler  → calls loadSkillHeaders() then passes result
  *
- * Export: runHeartbeat(token) → Promise<{ logs: string[], result: object }>
+ * Exports: { runHeartbeat, loadSkillHeaders }
  */
-
-// --- strategy constants ---
-const FPNAP        = 'eNXWgYAn';   // For Profit Not A Priest concept
-const FPNAP_BOUNTY = '8YzY7lmx';
-const MZT_CHAR     = '6E4nRNo3';   // @mztacat character
-const MY_CHAR      = 'lBOaqwV2';   // @HallenjayArt
-const TIP_DAILY_CAP  = 50;         // total tips per day (¢)
-const MIN_MEDIA_POSTS = 2;         // at least 2 of 5 posts with media
-
-// ─────────────────────────────────────────────────────────────────────────────
-// RPC layer
-// ─────────────────────────────────────────────────────────────────────────────
 
 const crypto = require('crypto');
 
-// Fetch skill.md, SHA-256 hash it, extract ack phrase.
-// Simcluster requires these headers on every protected MCP call.
-async function loadSkill() {
+// ─── strategy constants ───────────────────────────────────────────────────────
+const FPNAP          = 'eNXWgYAn';
+const FPNAP_BOUNTY   = '8YzY7lmx';
+const MZT_CHAR       = '6E4nRNo3';
+const MY_CHAR        = 'lBOaqwV2';
+const TIP_DAILY_CAP  = 50;
+const MIN_MEDIA_POSTS = 2;
+
+// ─── skill bootstrap (called by scheduler; frontend does its own via /api/skill) ─
+async function loadSkillHeaders() {
   const res  = await fetch('https://simcluster.ai/skill.md');
   const text = await res.text();
-  const hash = crypto.createHash('sha256').update(text).digest('hex');
-  const ack  = (text.match(/^(I [^\n]{10,})/m) || [])[1]?.trim() || '';
-  return { hash, ack };
+
+  // SHA-256 of raw file bytes — must be recomputed each time in case the file updates
+  const hash = crypto.createHash('sha256').update(text, 'utf8').digest('hex');
+
+  // Ack phrase: the file-specific retained words for this edition of skill.md.
+  // Located mid-file: "remember retire/text; that is this edition's retained words."
+  // If Simcluster rotates the phrase, update this value.
+  const ack = 'retire/text';
+
+  console.log('[skill] hash:', hash.slice(0, 16) + '... | ack:', ack);
+  return { skillHash: hash, skillAck: ack };
 }
 
+// ─── RPC layer ────────────────────────────────────────────────────────────────
 function makeRpc(token, skillHash, skillAck) {
   let _id = 1;
 
   async function rpc(name, args = {}) {
     const id = _id++;
-    const r = await fetch('https://simcluster.ai/mcp', {
-      method: 'POST',
+    const r  = await fetch('https://simcluster.ai/mcp', {
+      method:  'POST',
       headers: {
         'Authorization':           'Bearer ' + token,
         'Content-Type':            'application/json',
@@ -47,8 +52,8 @@ function makeRpc(token, skillHash, skillAck) {
       },
       body: JSON.stringify({
         jsonrpc: '2.0', id,
-        method: 'tools/call',
-        params: { name, arguments: args },
+        method:  'tools/call',
+        params:  { name, arguments: args },
       }),
     });
 
@@ -79,13 +84,14 @@ function makeRpc(token, skillHash, skillAck) {
   return { rpc, safeRpc, sleep };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Main exported function
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── main ─────────────────────────────────────────────────────────────────────
+async function runHeartbeat(token, skillHash, skillAck) {
+  if (!skillHash || !skillAck) {
+    throw new Error('skillHash and skillAck are required — load and acknowledge skill.md first');
+  }
 
-async function runHeartbeat(token) {
-  const logs   = [];
-  const today  = new Date().toISOString().slice(0, 10);
+  const logs  = [];
+  const today = new Date().toISOString().slice(0, 10);
 
   function log(...a) {
     const line = `[${new Date().toISOString()}] ` +
@@ -94,31 +100,29 @@ async function runHeartbeat(token) {
     console.log(line);
   }
 
-  // per-run state
+  log('=== Simcluster daily heartbeat START === day=' + today);
+  log('skill hash:', skillHash.slice(0, 16) + '...');
+  log('skill ack: ', skillAck.slice(0, 60) + (skillAck.length > 60 ? '...' : ''));
+
   const state = {
     day: today,
-    tippedToday: {},
+    tippedToday:      {},
     totalTippedToday: 0,
-    likedTodayMzt: [],
+    likedTodayMzt:    [],
     repostedTodayMzt: null,
-    repliedTodayMzt: null,
-    postedToday: [],
-    bonusesClaimed: {},
-    likedOwnToday: [],
+    repliedTodayMzt:  null,
+    postedToday:      [],
+    bonusesClaimed:   {},
+    likedOwnToday:    [],
   };
-
-  // fetch skill.md and compute required headers
-  log('Loading skill.md for MCP auth headers...');
-  const { hash: skillHash, ack: skillAck } = await loadSkill();
-  log('skill hash:', skillHash.slice(0, 12) + '...', '| ack:', skillAck.slice(0, 40) + '...');
 
   const { rpc, safeRpc, sleep } = makeRpc(token, skillHash, skillAck);
 
-  // ── helpers ────────────────────────────────────────────────────────────────
+  // ── helpers ──────────────────────────────────────────────────────────────────
 
   async function tipOnce(shortId, amount = 1) {
-    if (state.tippedToday[shortId])                           return { skipped: 'already-tipped-this-run' };
-    if (state.totalTippedToday + amount > TIP_DAILY_CAP)     return { skipped: 'daily-cap' };
+    if (state.tippedToday[shortId])                       return { skipped: 'already-tipped-this-run' };
+    if (state.totalTippedToday + amount > TIP_DAILY_CAP) return { skipped: 'daily-cap' };
     try {
       const r = await safeRpc('posts.incrementPostTip', { shortId, count: amount });
       if (r?.success) {
@@ -133,13 +137,9 @@ async function runHeartbeat(token) {
   async function tryClaimBonuses() {
     try {
       const st = await rpc('bounties.getDailySignInBountyStatus', {});
-      if (!st.nextClaimLockedUntil || new Date(st.nextClaimLockedUntil) <= new Date()) {
-        log('SIGN-IN bonus: browser claim required (MCP endpoint not exposed).');
-        state.bonusesClaimed.signIn = 'browser-required';
-      } else {
-        state.bonusesClaimed.signIn = 'locked-already-claimed';
-        log('SIGN-IN already claimed (locked until', st.nextClaimLockedUntil, ')');
-      }
+      state.bonusesClaimed.signIn =
+        (!st.nextClaimLockedUntil || new Date(st.nextClaimLockedUntil) <= new Date())
+          ? 'browser-required' : 'locked-already-claimed';
     } catch (e) { state.bonusesClaimed.signIn = 'error:' + e.message; }
 
     try {
@@ -157,8 +157,8 @@ async function runHeartbeat(token) {
   }
 
   async function generateImage() {
-    log('Generating image with FPNAP…');
-    const k = await rpc('create.image', {
+    log('Generating image with FPNAP...');
+    const k     = await rpc('create.image', {
       conceptShortIds: [FPNAP],
       items: [{ type: 'concept', shortId: FPNAP }],
       aspectRatio: '1:1',
@@ -209,9 +209,7 @@ async function runHeartbeat(token) {
     });
   }
 
-  // ── execution ──────────────────────────────────────────────────────────────
-
-  log('=== Simcluster daily heartbeat START ===', 'day=' + today);
+  // ── execution ────────────────────────────────────────────────────────────────
 
   await tryClaimBonuses();
 
@@ -220,21 +218,21 @@ async function runHeartbeat(token) {
   let postsLeft  = session.player?.dailyPosts?.remaining ?? 0;
   log('START balance:', startBal, 'postsRemaining:', postsLeft);
 
-  // ── mztacat engagement ─────────────────────────────────────────────────────
+  // mztacat engagement
   const mztPosts = await fetchMzt();
   log('mztacat posts seen:', mztPosts.length);
 
   for (const p of mztPosts) {
-    if (state.likedTodayMzt.length >= 2) break;          // cap at 2 likes
+    if (state.likedTodayMzt.length >= 2) break;
     if (p.player_engagement?.likedActive) continue;
     try {
       await safeRpc('posts.likePost', { shortId: p.short_id, active: true });
       state.likedTodayMzt.push(p.short_id);
     } catch (e) { log('like-mzt error', p.short_id, e.message); }
   }
-  log('mzt liked this run:', state.likedTodayMzt.length);
+  log('mzt liked:', state.likedTodayMzt.length);
 
-  // repost highest-tip mzt post
+  // repost best mzt post
   const repostable = mztPosts
     .filter(p => !p.player_engagement?.repostedActive)
     .sort((a, b) => (b.cumulative_tips || 0) - (a.cumulative_tips || 0));
@@ -242,24 +240,24 @@ async function runHeartbeat(token) {
     try {
       await safeRpc('posts.repostPost', { shortId: repostable[0].short_id, active: true });
       state.repostedTodayMzt = repostable[0].short_id;
-      log('reposted mzt best:', repostable[0].short_id);
+      log('reposted mzt:', repostable[0].short_id);
     } catch (e) { log('repost error', e.message); }
   }
 
-  // tip mzt posts 1¢ each — max 2 posts
+  // tip 2 mzt posts
   for (const p of mztPosts.slice(0, 2)) {
     const r = await tipOnce(p.short_id, 1);
     if (r.skipped === 'daily-cap') { log('tip cap reached'); break; }
   }
-  log('after mzt tips totalTipped¢:', state.totalTippedToday);
+  log('after mzt tips total¢:', state.totalTippedToday);
 
-  // ── refresh quota ──────────────────────────────────────────────────────────
+  // refresh quota
   session   = await rpc('agent.sessionStatus', {});
   postsLeft = session.player?.dailyPosts?.remaining ?? 0;
   let bal   = session.player?.clout?.totalAvailable ?? 0;
   log('postsLeft after engagement:', postsLeft, 'balance:', bal);
 
-  // ── reply slot ─────────────────────────────────────────────────────────────
+  // reply slot
   if (postsLeft > 0 && bal >= 10) {
     const latestTop = mztPosts.find(p => !p.in_reply_to);
     if (latestTop) {
@@ -268,13 +266,13 @@ async function runHeartbeat(token) {
         const sid   = reply.post?.short_id || reply.newPost?.short_id;
         state.repliedTodayMzt = latestTop.short_id;
         state.postedToday.push({ shortId: sid, kind: 'reply-to-mzt', target: latestTop.short_id });
-        log('replied to mzt latest', latestTop.short_id, '->', sid);
+        log('replied to mzt:', latestTop.short_id, '->', sid);
         postsLeft--;
       } catch (e) { log('reply error', e.message); }
     }
   }
 
-  // ── content posts: 2 with media, rest text ─────────────────────────────────
+  // content posts: 2 with media, rest text
   const slotsToFill = postsLeft;
   const mediaSlots  = Math.min(MIN_MEDIA_POSTS, slotsToFill);
   log('filling slots:', slotsToFill, 'mediaSlots:', mediaSlots);
@@ -282,19 +280,18 @@ async function runHeartbeat(token) {
   for (let i = 0; i < slotsToFill; i++) {
     session = await rpc('agent.sessionStatus', {});
     bal     = session.player?.clout?.totalAvailable ?? 0;
-    if (bal < 20) { log('balance below 20¢, stopping. bal=', bal); break; }
+    if (bal < 800) { log('balance below 800, stopping. bal=', bal); break; }
 
-    const wantMedia = i < mediaSlots;
     try {
       let mediaShortId = null;
-      if (wantMedia) {
+      if (i < mediaSlots) {
         const img = await generateImage();
         mediaShortId =
-          img.media?.shortId  || img.shortId       ||
-          img.media_shortId   || img.image?.shortId ||
+          img.media?.shortId || img.shortId ||
+          img.media_shortId  || img.image?.shortId ||
           img.media?.short_id || null;
         if (!mediaShortId)
-          log('no media shortId, falling back to text. raw:', JSON.stringify(img).slice(0, 300));
+          log('no media shortId, falling back to text. raw:', JSON.stringify(img).slice(0, 200));
       }
 
       const textRes = mediaShortId
@@ -303,61 +300,56 @@ async function runHeartbeat(token) {
 
       const pub = await publishPost(textRes.shortId, mediaShortId ? [mediaShortId] : []);
       const sid = pub.newPost?.short_id || pub.post?.short_id;
-
       state.postedToday.push({ shortId: sid, kind: mediaShortId ? 'image' : 'text', media: mediaShortId });
-      log('posted slot', i + 1, '->', sid, mediaShortId ? '(with image)' : '(text)');
+      log('posted slot', i + 1, '->', sid, mediaShortId ? '(image)' : '(text)');
     } catch (e) {
       log('post slot', i + 1, 'error:', e.message);
       if (/cap|limit|exceeded/i.test(e.message)) break;
     }
   }
 
-  // ── warmup: like + tip recent feed ────────────────────────────────────────
+  // warmup: like + tip recent feed
   try {
-    const feed = await rpc('agent.readFeed', { kind: 'recent', limit: 25 });
-    const re   = /^shortId:\s*(\S+)[\s\S]*?^author:.*?@(\S+)/gm;
+    const feed  = await rpc('agent.readFeed', { kind: 'recent', limit: 25 });
+    const re    = /^shortId:\s*(\S+)[\s\S]*?^author:.*?@(\S+)/gm;
     const found = [];
     let m;
-    while ((m = re.exec(feed)) !== null) found.push({ shortId: m[1], username: m[2] });
+    while ((m = re.exec(feed)) !== null) found.push({ shortId: m[1] });
 
     let liked = 0;
     for (const { shortId } of found.slice(0, 10)) {
       try { await safeRpc('posts.likePost', { shortId, active: true }); liked++; } catch (_) {}
     }
-    log('warmup liked feed posts:', liked);
+    log('warmup liked:', liked);
 
-    for (const { shortId } of found.slice(0, 5)) {
+    for (const { shortId } of found.slice(0, 2)) {
       const r = await tipOnce(shortId, 1);
       if (r.skipped === 'daily-cap') break;
     }
-    log('after warmup tips totalTipped¢:', state.totalTippedToday);
+    log('after warmup tips total¢:', state.totalTippedToday);
   } catch (e) { log('warmup error', e.message); }
 
-  // ── like own posts ─────────────────────────────────────────────────────────
+  // like own posts
   try {
     const own = await rpc('posts.getCharacterTimelineFeed', { charShortIds: [MY_CHAR], limit: 50 });
     let likedOwn = 0;
     for (const p of own.posts || []) {
-      if (p.author?.shortId !== MY_CHAR)      continue;
-      if (p.player_engagement?.likedActive)   continue;
-      try {
-        await safeRpc('posts.likePost', { shortId: p.short_id, active: true });
-        likedOwn++;
-        state.likedOwnToday.push(p.short_id);
-      } catch (_) {}
+      if (p.author?.shortId !== MY_CHAR)    continue;
+      if (p.player_engagement?.likedActive) continue;
+      try { await safeRpc('posts.likePost', { shortId: p.short_id, active: true }); likedOwn++; } catch (_) {}
     }
     log('liked own posts:', likedOwn);
   } catch (e) { log('like-own error', e.message); }
 
-  // ── final report ───────────────────────────────────────────────────────────
-  session       = await rpc('agent.sessionStatus', {});
-  const endBal  = session.player?.clout?.totalAvailable ?? 0;
+  // final report
+  session      = await rpc('agent.sessionStatus', {});
+  const endBal = session.player?.clout?.totalAvailable ?? 0;
 
   log('=== END-OF-DAY REPORT ===');
-  log('balance start:', startBal, '-> end:', endBal, 'delta:', endBal - startBal);
-  log('posts made this run:', state.postedToday.length, JSON.stringify(state.postedToday));
-  log('mzt: liked', state.likedTodayMzt.length, '| reposted', state.repostedTodayMzt || '-', '| replied to', state.repliedTodayMzt || '-');
-  log('tipping: total¢', state.totalTippedToday, '| targets', Object.keys(state.tippedToday).length);
+  log('balance:', startBal, '->', endBal, 'delta:', endBal - startBal);
+  log('posts:', state.postedToday.length, JSON.stringify(state.postedToday));
+  log('mzt: liked', state.likedTodayMzt.length, '| reposted', state.repostedTodayMzt || '-', '| replied', state.repliedTodayMzt || '-');
+  log('tips total¢:', state.totalTippedToday, '| targets:', Object.keys(state.tippedToday).length);
   log('bonuses:', JSON.stringify(state.bonusesClaimed));
   log('rank:', session.player?.leaderboard?.rank);
   log('postsRemaining:', session.player?.dailyPosts?.remaining, '/', session.player?.dailyPosts?.limit);
@@ -367,13 +359,12 @@ async function runHeartbeat(token) {
     logs,
     result: {
       startBal, endBal,
-      delta: endBal - startBal,
+      delta:          endBal - startBal,
       postsRemaining: session.player?.dailyPosts?.remaining,
       postsLimit:     session.player?.dailyPosts?.limit,
       rank:           session.player?.leaderboard?.rank,
       posts:          state.postedToday,
       mzt: {
-        liked:    state.likedTodayMzt.length,
         reposted: state.repostedTodayMzt,
         replied:  state.repliedTodayMzt,
       },
@@ -386,7 +377,8 @@ async function runHeartbeat(token) {
   };
 }
 
-module.exports = { runHeartbeat };
+module.exports = { runHeartbeat, loadSkillHeaders };
+// module.exports = { runHeartbeat };
 // /**
 //  * heartbeat.js — Simcluster daily strategy for @HallenjayArt
 //  *
@@ -401,14 +393,26 @@ module.exports = { runHeartbeat };
 // const FPNAP_BOUNTY = '8YzY7lmx';
 // const MZT_CHAR     = '6E4nRNo3';   // @mztacat character
 // const MY_CHAR      = 'lBOaqwV2';   // @HallenjayArt
-// const TIP_DAILY_CAP  = 50;         // total tips per day (¢)
+// const TIP_DAILY_CAP  = 10;         // total tips per day (¢)
 // const MIN_MEDIA_POSTS = 2;         // at least 2 of 5 posts with media
 
 // // ─────────────────────────────────────────────────────────────────────────────
 // // RPC layer
 // // ─────────────────────────────────────────────────────────────────────────────
 
-// function makeRpc(token) {
+// const crypto = require('crypto');
+
+// // Fetch skill.md, SHA-256 hash it, extract ack phrase.
+// // Simcluster requires these headers on every protected MCP call.
+// async function loadSkill() {
+//   const res  = await fetch('https://simcluster.ai/skill.md');
+//   const text = await res.text();
+//   const hash = crypto.createHash('sha256').update(text).digest('hex');
+//   const ack  = (text.match(/^(I [^\n]{10,})/m) || [])[1]?.trim() || '';
+//   return { hash, ack };
+// }
+
+// function makeRpc(token, skillHash, skillAck) {
 //   let _id = 1;
 
 //   async function rpc(name, args = {}) {
@@ -416,9 +420,11 @@ module.exports = { runHeartbeat };
 //     const r = await fetch('https://simcluster.ai/mcp', {
 //       method: 'POST',
 //       headers: {
-//         'Authorization': 'Bearer ' + token,
-//         'Content-Type': 'application/json',
-//         'Accept': 'application/json, text/event-stream',
+//         'Authorization':           'Bearer ' + token,
+//         'Content-Type':            'application/json',
+//         'Accept':                  'application/json, text/event-stream',
+//         'X-Simcluster-Skill-Hash': skillHash,
+//         'X-Simcluster-Skill-Ack':  skillAck,
 //       },
 //       body: JSON.stringify({
 //         jsonrpc: '2.0', id,
@@ -482,7 +488,12 @@ module.exports = { runHeartbeat };
 //     likedOwnToday: [],
 //   };
 
-//   const { rpc, safeRpc, sleep } = makeRpc(token);
+//   // fetch skill.md and compute required headers
+//   log('Loading skill.md for MCP auth headers...');
+//   const { hash: skillHash, ack: skillAck } = await loadSkill();
+//   log('skill hash:', skillHash.slice(0, 12) + '...', '| ack:', skillAck.slice(0, 40) + '...');
+
+//   const { rpc, safeRpc, sleep } = makeRpc(token, skillHash, skillAck);
 
 //   // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -595,6 +606,7 @@ module.exports = { runHeartbeat };
 //   log('mztacat posts seen:', mztPosts.length);
 
 //   for (const p of mztPosts) {
+//     if (state.likedTodayMzt.length >= 2) break;          // cap at 2 likes
 //     if (p.player_engagement?.likedActive) continue;
 //     try {
 //       await safeRpc('posts.likePost', { shortId: p.short_id, active: true });
@@ -615,8 +627,8 @@ module.exports = { runHeartbeat };
 //     } catch (e) { log('repost error', e.message); }
 //   }
 
-//   // tip mzt posts 1¢ each
-//   for (const p of mztPosts) {
+//   // tip mzt posts 1¢ each — max 2 posts
+//   for (const p of mztPosts.slice(0, 2)) {
 //     const r = await tipOnce(p.short_id, 1);
 //     if (r.skipped === 'daily-cap') { log('tip cap reached'); break; }
 //   }
@@ -651,7 +663,7 @@ module.exports = { runHeartbeat };
 //   for (let i = 0; i < slotsToFill; i++) {
 //     session = await rpc('agent.sessionStatus', {});
 //     bal     = session.player?.clout?.totalAvailable ?? 0;
-//     if (bal < 800) { log('balance below 800¢, stopping. bal=', bal); break; }
+//     if (bal < 20) { log('balance below 20¢, stopping. bal=', bal); break; }
 
 //     const wantMedia = i < mediaSlots;
 //     try {
@@ -690,12 +702,12 @@ module.exports = { runHeartbeat };
 //     while ((m = re.exec(feed)) !== null) found.push({ shortId: m[1], username: m[2] });
 
 //     let liked = 0;
-//     for (const { shortId } of found.slice(2)) {
+//     for (const { shortId } of found.slice(0, 10)) {
 //       try { await safeRpc('posts.likePost', { shortId, active: true }); liked++; } catch (_) {}
 //     }
 //     log('warmup liked feed posts:', liked);
 
-//     for (const { shortId } of found.slice(0, 2)) {
+//     for (const { shortId } of found.slice(0, 5)) {
 //       const r = await tipOnce(shortId, 1);
 //       if (r.skipped === 'daily-cap') break;
 //     }
@@ -742,7 +754,7 @@ module.exports = { runHeartbeat };
 //       rank:           session.player?.leaderboard?.rank,
 //       posts:          state.postedToday,
 //       mzt: {
-//         // liked:    state.likedTodayMzt.length,
+//         liked:    state.likedTodayMzt.length,
 //         reposted: state.repostedTodayMzt,
 //         replied:  state.repliedTodayMzt,
 //       },
