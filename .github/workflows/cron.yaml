@@ -11,5 +11,5 @@ jobs:
     steps:
       - name: Wake up and trigger all slots 
         run: |
-          curl -X POST https://simcluster-agent.onrender.com/api/run \
+          curl -X POST https://simcluster-agent.onrender.com/api/run-all \
           -H "Content-Type: application/json"
