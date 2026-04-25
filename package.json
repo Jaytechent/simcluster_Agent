@@ -2,15 +2,16 @@
   "name": "simcluster-daily",
   "version": "1.0.0",
   "private": true,
-  "description": "Simcluster daily heartbeat for @HallenjayArt (Render Cron Job)",
-  "main": "simcluster-daily.cjs",
+  "description": "Simcluster daily heartbeat for @HallenjayArt",
+  "main": "server.js",
   "scripts": {
-    "start": "node simcluster-daily.cjs"
+    "start": "node server.js"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "dotenv": "^17.4.2"
+    "dotenv": "^17.4.2",
+    "express": "^4.21.2"
   }
 }
