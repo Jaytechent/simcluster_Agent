@@ -635,10 +635,10 @@
 
   // ── heartbeat ──────────────────────────────────────────────────────────────
   async function runHeartbeat() {
-    if (!skillHash || !skillAck) {
-      alert('⚠️ You must read and acknowledge the Simcluster skill file first. Click "Load Skill File" above.');
-      return;
-    }
+   if (!skillHash || !skillAck) {
+  console.warn('Skill not acknowledged — continuing anyway');
+  setStatus('⚠️ Skill not acknowledged — attempting run anyway', 'warn');
+}
     setRunning(true);
     setStatus('⚡ Running heartbeat…', 'info');
     document.getElementById('logs').textContent = '';
