@@ -19,7 +19,19 @@ const MIN_MEDIA_POSTS = 2;         // at least 2 of 5 posts with media
 // RPC layer
 // ─────────────────────────────────────────────────────────────────────────────
 
-function makeRpc(token) {
+const crypto = require('crypto');
+
+// Fetch skill.md, SHA-256 hash it, extract ack phrase.
+// Simcluster requires these headers on every protected MCP call.
+async function loadSkill() {
+  const res  = await fetch('https://simcluster.ai/skill.md');
+  const text = await res.text();
+  const hash = crypto.createHash('sha256').update(text).digest('hex');
+  const ack  = (text.match(/^(I [^\n]{10,})/m) || [])[1]?.trim() || '';
+  return { hash, ack };
+}
+
+function makeRpc(token, skillHash, skillAck) {
   let _id = 1;
 
   async function rpc(name, args = {}) {
@@ -27,9 +39,11 @@ function makeRpc(token) {
     const r = await fetch('https://simcluster.ai/mcp', {
       method: 'POST',
       headers: {
-        'Authorization': 'Bearer ' + token,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json, text/event-stream',
+        'Authorization':           'Bearer ' + token,
+        'Content-Type':            'application/json',
+        'Accept':                  'application/json, text/event-stream',
+        'X-Simcluster-Skill-Hash': skillHash,
+        'X-Simcluster-Skill-Ack':  skillAck,
       },
       body: JSON.stringify({
         jsonrpc: '2.0', id,
@@ -93,7 +107,12 @@ async function runHeartbeat(token) {
     likedOwnToday: [],
   };
 
-  const { rpc, safeRpc, sleep } = makeRpc(token);
+  // fetch skill.md and compute required headers
+  log('Loading skill.md for MCP auth headers...');
+  const { hash: skillHash, ack: skillAck } = await loadSkill();
+  log('skill hash:', skillHash.slice(0, 12) + '...', '| ack:', skillAck.slice(0, 40) + '...');
+
+  const { rpc, safeRpc, sleep } = makeRpc(token, skillHash, skillAck);
 
   // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -368,7 +387,6 @@ async function runHeartbeat(token) {
 }
 
 module.exports = { runHeartbeat };
-
 // /**
 //  * heartbeat.js — Simcluster daily strategy for @HallenjayArt
 //  *
