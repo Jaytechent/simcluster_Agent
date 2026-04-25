@@ -9,7 +9,7 @@ jobs:
   trigger-heartbeat:
     runs-on: ubuntu-latest
     steps:
-      - name: Wake up and trigger all slots
+      - name: Wake up and trigger all slots 
         run: |
           curl -X POST https://simcluster-agent.onrender.com/api/run \
           -H "Content-Type: application/json"
