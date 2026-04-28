@@ -67,7 +67,7 @@ app.get('/api/skill', async (req, res) => {
     // fallback to known phrase if regex fails (Render IP may get different response)
     if (!ack) {
       console.warn('[skill] regex failed — using known fallback ack. First 200 chars:', text.slice(0, 200));
-      ack = 'retire/text';
+      ack = 'prevent.trap.length.horse';
     }
 
     console.log('[skill] hash:', hash.slice(0, 16) + '... | ack:', ack);

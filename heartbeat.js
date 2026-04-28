@@ -35,11 +35,11 @@ async function loadSkillHeaders() {
   const hash = crypto.createHash('sha256').update(text, 'utf8').digest('hex');
 
   const norm  = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  const match = norm.match(/remember ([^;\n]+);[^\n]*that is this edition.{0,3}s retained words/i);
+  const match = norm.match(/remember ([^;\n]+);[^\n]*that is this edition.{0,3}s operating memory/i);
   let ack     = match ? match[1].trim() : null;
   if (!ack) {
     console.warn('[skill] regex failed — using known fallback');
-    ack = 'retire/text';
+    ack = 'prevent.trap.length.horse';
   }
   console.log('[skill] hash:', hash.slice(0, 16) + '... | ack:', ack);
   return { skillHash: hash, skillAck: ack };
@@ -537,6 +537,9 @@ async function runHeartbeat(token, skillHash, skillAck) {
 }
 
 module.exports = { runHeartbeat, loadSkillHeaders };
+
+
+
 // /**
 //  * heartbeat.js — Simcluster daily strategy for @HallenjayArt
 //  *
@@ -566,11 +569,11 @@ module.exports = { runHeartbeat, loadSkillHeaders };
 //   const hash = crypto.createHash('sha256').update(text, 'utf8').digest('hex');
 
 //   const norm  = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-//   const match = norm.match(/remember ([^;\n]+);[^\n]*that is this edition.{0,3}s retained words/i);
+//   const match = norm.match(/remember ([^;\n]+);[^\n]*that is this edition.{0,3}s operating memory/i);
 //   let ack     = match ? match[1].trim() : null;
 //   if (!ack) {
 //     console.warn('[skill] regex failed — using known fallback');
-//     ack = 'retire/text';
+//     ack = 'prevent.trap.length.horse';
 //   }
 //   console.log('[skill] hash:', hash.slice(0, 16) + '... | ack:', ack);
 //   return { skillHash: hash, skillAck: ack };
@@ -931,12 +934,12 @@ module.exports = { runHeartbeat, loadSkillHeaders };
 //   // SHA-256 of raw file bytes
 //   const hash = crypto.createHash('sha256').update(text, 'utf8').digest('hex');
 
-//   // Pattern: "remember X; that is this edition's retained words"
-//   const match = text.match(/remember ([^;\n]+);\s*that is this edition[\u2018\u2019']s retained words/i);
+//   // Pattern: "remember X; that is this edition's operating memory"
+//   const match = text.match(/remember ([^;\n]+);\s*that is this edition[\u2018\u2019']s operating memory/i);
 //   const ack   = match ? match[1].trim() : null;
 
 //   if (!ack) {
-//     throw new Error('ack phrase not found in skill.md — file may have rotated. Check the file for retained words.');
+//     throw new Error('ack phrase not found in skill.md — file may have rotated. Check the file for operating memory.');
 //   }
 
 //   console.log('[skill] hash:', hash.slice(0, 16) + '... | ack:', ack);
