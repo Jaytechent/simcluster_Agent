@@ -163,6 +163,166 @@ app.get('/status', (req, res) => {
   res.json({ hasToken: !!getToken(slot), slot });
 });
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log('Server running on port', process.env.PORT || 3000);
+// ── Manual API helpers ────────────────────────────────────────────────────────
+const crypto = require('crypto');
+
+function makeManualRpc(token, skillHash, skillAck) {
+  let _id = 1;
+  return async function rpc(name, args = {}) {
+    const id = _id++;
+    const r  = await fetch('https://simcluster.ai/mcp', {
+      method:  'POST',
+      headers: {
+        'Authorization':           'Bearer ' + token,
+        'Content-Type':            'application/json',
+        'Accept':                  'application/json, text/event-stream',
+        'X-Simcluster-Skill-Hash': skillHash,
+        'X-Simcluster-Skill-Ack':  skillAck,
+      },
+      body: JSON.stringify({ jsonrpc: '2.0', id, method: 'tools/call', params: { name, arguments: args } }),
+    });
+    const j = await r.json();
+    if (j.result?.isError) throw new Error(`${name}: ${j.result.content?.[0]?.text || 'unknown'}`);
+    if (j.error)           throw new Error(`${name}: ${j.error.message}`);
+    const txt = j.result?.content?.[0]?.text;
+    if (!txt) return j.result;
+    try { return JSON.parse(txt); } catch { return txt; }
+  };
+}
+
+function buildItems(conceptIds) {
+  const entries = conceptIds.map(s => ({ type: 'concept', shortId: s }));
+  const items   = [];
+  entries.forEach((e, i) => {
+    items.push(e);
+    if (i < entries.length - 1) items.push({ type: 'fragment', fragment: null });
+  });
+  return items;
+}
+
+const FPNAP       = 'eNXWgYAn';
+const HAVEN_SHORT = '025YY6a2';
+
+function resolveConceptIds(raw) {
+  if (raw && raw.trim()) {
+    return raw.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  return [FPNAP, HAVEN_SHORT];
+}
+
+// POST /api/manual/text  { accessCode, skillHash, skillAck, concepts, caption }
+app.post('/api/manual/text', async (req, res) => {
+  const { accessCode, skillHash, skillAck, concepts, caption } = req.body || {};
+  if (!accessCode) return res.status(400).json({ success: false, error: 'Missing access code' });
+  const slot  = resolveSlot(accessCode);
+  if (!slot)  return res.status(403).json({ success: false, error: 'Invalid access code' });
+  const token = getToken(slot);
+  if (!token) return res.status(401).json({ success: false, error: 'No bearer token — connect first' });
+
+  const conceptIds = resolveConceptIds(concepts);
+  const rpc = makeManualRpc(token, skillHash, skillAck);
+
+  try {
+    const args = { items: buildItems(conceptIds), mediaShortIds: [] };
+    if (caption) args.text = caption;
+    const data = await rpc('create.text', args);
+    res.json({ success: true, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/manual/image  { accessCode, skillHash, skillAck, concepts, caption }
+app.post('/api/manual/image', async (req, res) => {
+  const { accessCode, skillHash, skillAck, concepts, caption } = req.body || {};
+  if (!accessCode) return res.status(400).json({ success: false, error: 'Missing access code' });
+  const slot  = resolveSlot(accessCode);
+  if (!slot)  return res.status(403).json({ success: false, error: 'Invalid access code' });
+  const token = getToken(slot);
+  if (!token) return res.status(401).json({ success: false, error: 'No bearer token — connect first' });
+
+  const conceptIds = resolveConceptIds(concepts);
+  const rpc = makeManualRpc(token, skillHash, skillAck);
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  try {
+    const k = await rpc('create.image', { items: buildItems(conceptIds), aspectRatio: '1:1' });
+    const evtId = k.generation_event_id;
+    if (!evtId) throw new Error('No generation_event_id: ' + JSON.stringify(k));
+
+    let mediaShortId = null;
+    for (let i = 0; i < 60; i++) {
+      await sleep(3000);
+      const st = await rpc('create.getGenerationStatus', { generation_event_id: evtId });
+      if (st.status === 'complete' || st.status === 'completed') {
+        mediaShortId = st.mediaShortId || st.media?.shortId || st.media?.short_id || null;
+        break;
+      }
+      if (st.status === 'failed' || st.status === 'error') throw new Error('Image gen failed: ' + JSON.stringify(st));
+    }
+    if (!mediaShortId) throw new Error('Image generation timed out');
+
+    const postArgs = { items: buildItems(conceptIds), mediaShortIds: [mediaShortId] };
+    if (caption) postArgs.text = caption;
+    const data = await rpc('create.text', postArgs);
+    res.json({ success: true, data, mediaShortId });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/manual/bonus  { accessCode, skillHash, skillAck, type: 'signin'|'billboard' }
+app.post('/api/manual/bonus', async (req, res) => {
+  const { accessCode, skillHash, skillAck, type } = req.body || {};
+  if (!accessCode) return res.status(400).json({ success: false, error: 'Missing access code' });
+  const slot  = resolveSlot(accessCode);
+  if (!slot)  return res.status(403).json({ success: false, error: 'Invalid access code' });
+  const token = getToken(slot);
+  if (!token) return res.status(401).json({ success: false, error: 'No bearer token — connect first' });
+
+  const rpc = makeManualRpc(token, skillHash, skillAck);
+  try {
+    let data, message;
+    if (type === 'signin') {
+      data = await rpc('bounties.claimDailySignInBounty', {});
+      message = 'Sign-in bonus claimed';
+    } else if (type === 'billboard') {
+      data = await rpc('bounties.claimDailyBillboardBonus', {});
+      message = 'Billboard bonus claimed';
+    } else {
+      return res.status(400).json({ success: false, error: 'Invalid bonus type — use signin or billboard' });
+    }
+    res.json({ success: true, message, data });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/manual/repost  { accessCode, skillHash, skillAck }
+app.post('/api/manual/repost', async (req, res) => {
+  const { accessCode, skillHash, skillAck } = req.body || {};
+  if (!accessCode) return res.status(400).json({ success: false, error: 'Missing access code' });
+  const slot  = resolveSlot(accessCode);
+  if (!slot)  return res.status(403).json({ success: false, error: 'Invalid access code' });
+  const token = getToken(slot);
+  if (!token) return res.status(401).json({ success: false, error: 'No bearer token — connect first' });
+
+  const rpc = makeManualRpc(token, skillHash, skillAck);
+  try {
+    const feed = await rpc('feed.forYou', { limit: 5 });
+    const posts = Array.isArray(feed) ? feed : (feed?.posts || feed?.items || []);
+    if (!posts.length) return res.json({ success: false, error: 'No posts in feed to repost' });
+    const target = posts[0];
+    const postId = target.shortId || target.short_id || target.id;
+    if (!postId) return res.json({ success: false, error: 'Could not find post ID in feed' });
+    const data = await rpc('create.repost', { postShortId: postId });
+    res.json({ success: true, data, repostedId: postId });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log('Server running on port', PORT);
 });

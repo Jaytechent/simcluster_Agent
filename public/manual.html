@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Manual Ops — Simcluster Agent</title>
+  <link href="https://fonts.googleapis.com/css2?family=Azeret+Mono:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:      #050607;
+      --panel:   #0b0d10;
+      --border:  #1a1f28;
+      --border2: #242c38;
+      --lime:    #a8ff3e;
+      --cyan:    #00d4ff;
+      --red:     #ff2d55;
+      --amber:   #ffbe00;
+      --purple:  #b06fff;
+      --text:    #e8edf5;
+      --muted:   #4a5568;
+      --muted2:  #2d3748;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { cursor: default; }
+    a, button, [onclick], label { cursor: pointer; }
+    input[type="text"], textarea { cursor: text; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Azeret Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    #bg-canvas {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    }
+    nav, main, footer { position: relative; z-index: 1; }
+
+    nav {
+      border-bottom: 1px solid var(--border);
+      background: rgba(5,6,7,0.88);
+      backdrop-filter: blur(14px);
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center;
+      padding: 0 24px; height: 52px;
+    }
+    .nav-logo { font-family: 'Azeret Mono', monospace; font-size: 16px; font-weight: 800; letter-spacing: 4px; color: var(--lime); margin-right: 32px; text-transform: uppercase; }
+    .nav-tabs { display: flex; gap: 0; height: 100%; }
+    .nav-tab { font-family: 'Azeret Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); text-decoration: none; padding: 0 20px; display: flex; align-items: center; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; cursor: pointer; }
+    .nav-tab:hover { color: var(--text); }
+    .nav-tab.active { color: var(--lime); border-bottom-color: var(--lime); }
+    .nav-right { margin-left: auto; font-size: 10px; color: var(--muted); letter-spacing: 1px; font-family: 'Azeret Mono', monospace; }
+    .nav-dot { display: inline-block; width: 6px; height: 6px; background: var(--lime); border-radius: 50%; margin-right: 6px; animation: blink 2s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    main { flex: 1; max-width: 700px; width: 100%; margin: 0 auto; padding: 40px 20px 80px; }
+
+    .hero { margin-bottom: 36px; }
+    .hero-tag { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border2); padding: 4px 12px; font-size: 10px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--purple); margin-bottom: 14px; font-family: 'Azeret Mono', monospace; }
+    .hero-tag span { width: 6px; height: 6px; background: var(--purple); border-radius: 50%; animation: blink 2s infinite; }
+    .hero h1 { font-family: 'Azeret Mono', monospace; font-size: clamp(38px, 7vw, 58px); font-weight: 900; letter-spacing: -1px; line-height: 1.05; color: #fff; margin-bottom: 10px; text-transform: uppercase; }
+    .hero h1 em { color: var(--purple); font-style: normal; }
+    .hero p { font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; font-family: 'Azeret Mono', monospace; }
+
+    .panel { border: 1px solid var(--border); background: rgba(11,13,16,0.85); backdrop-filter: blur(8px); margin-bottom: 12px; }
+    .panel-head { border-bottom: 1px solid var(--border); padding: 12px 18px; display: flex; align-items: center; gap: 10px; font-size: 10px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); font-family: 'Azeret Mono', monospace; }
+    .panel-head .bar { width: 3px; height: 14px; background: var(--lime); flex-shrink: 0; }
+    .panel-head .bar-cyan { background: var(--cyan); }
+    .panel-head .bar-purple { background: var(--purple); }
+    .panel-head .bar-amber { background: var(--amber); }
+    .panel-body { padding: 18px; }
+
+    .field-group { margin-bottom: 16px; }
+    .field-label { font-size: 10px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 7px; display: block; font-family: 'Azeret Mono', monospace; }
+    textarea, input[type="text"] {
+      width: 100%; background: #080a0d; border: 1px solid var(--border2);
+      color: var(--text); font-family: 'Azeret Mono', monospace; font-size: 12px;
+      padding: 11px 14px; outline: none; resize: vertical; transition: border-color 0.15s;
+    }
+    textarea { min-height: 90px; line-height: 1.6; }
+    textarea:focus, input[type="text"]:focus { border-color: var(--lime); }
+    textarea::placeholder, input[type="text"]::placeholder { color: var(--muted2); }
+    .input-row { display: flex; gap: 8px; }
+    .input-row input { flex: 1; }
+
+    .hint { font-size: 10px; color: var(--muted); margin-top: 6px; line-height: 1.6; font-family: 'Azeret Mono', monospace; }
+    .hint code { color: var(--cyan); background: rgba(0,212,255,0.08); padding: 1px 5px; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 11px 22px; border: 1px solid transparent;
+      font-family: 'Azeret Mono', monospace; font-size: 11px; font-weight: 800;
+      letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer;
+      transition: opacity 0.15s, background 0.15s; white-space: nowrap;
+    }
+    .btn:active { opacity: 0.7; }
+    .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-lime   { background: var(--lime);   color: #050607; border-color: var(--lime);   }
+    .btn-lime:hover:not(:disabled)   { background: #c5ff6e; }
+    .btn-cyan   { background: var(--cyan);   color: #050607; border-color: var(--cyan);   }
+    .btn-cyan:hover:not(:disabled)   { background: #33ddff; }
+    .btn-purple { background: var(--purple); color: #050607; border-color: var(--purple); }
+    .btn-purple:hover:not(:disabled) { background: #c28fff; }
+    .btn-amber  { background: var(--amber);  color: #050607; border-color: var(--amber);  }
+    .btn-amber:hover:not(:disabled)  { background: #ffd040; }
+    .btn-outline { background: transparent; border-color: var(--border2); color: var(--muted); }
+    .btn-outline:hover:not(:disabled) { border-color: var(--lime); color: var(--lime); }
+    .btn-full { width: 100%; justify-content: center; font-size: 13px; font-weight: 900; letter-spacing: 4px; padding: 15px; }
+
+    .result-box {
+      display: none; margin-top: 12px; background: #030405;
+      border: 1px solid var(--border); padding: 12px 14px;
+      font-size: 11px; color: #5aff8a;
+      white-space: pre-wrap; word-break: break-all;
+      line-height: 1.7; max-height: 200px; overflow-y: auto;
+      font-family: 'Azeret Mono', monospace;
+    }
+    .result-box.visible { display: block; }
+    .result-box.error { color: var(--red); }
+
+    .ops-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 560px) { .ops-grid { grid-template-columns: 1fr; } }
+
+    .status-bar {
+      padding: 10px 14px; border: 1px solid var(--border);
+      font-size: 11px; font-weight: 700; letter-spacing: 1px;
+      margin: 14px 0 4px; display: flex; align-items: center; gap: 8px;
+      font-family: 'Azeret Mono', monospace;
+    }
+    .status-bar::before { content: '// '; color: var(--lime); }
+    .status-ok   { color: var(--lime);   border-color: rgba(168,255,62,0.2); background: rgba(168,255,62,0.03); }
+    .status-err  { color: var(--red);    border-color: rgba(255,45,85,0.2);  background: rgba(255,45,85,0.03); }
+    .status-info { color: var(--cyan);   border-color: rgba(0,212,255,0.2);  background: rgba(0,212,255,0.03); }
+    .status-warn { color: var(--amber);  border-color: rgba(255,190,0,0.2);  background: rgba(255,190,0,0.03); }
+    .status-hidden { display: none !important; }
+
+    .skill-text { background: #050607; border: 1px solid var(--border); color: #6b7280; font-size: 11px; line-height: 1.8; padding: 14px; max-height: 160px; overflow-y: auto; white-space: pre-wrap; word-break: break-word; margin: 12px 0; font-family: 'Azeret Mono', monospace; }
+    .ack-line { background: rgba(255,190,0,0.06); border: 1px solid rgba(255,190,0,0.25); color: #d1a500; font-size: 11px; padding: 10px 14px; margin: 8px 0; cursor: pointer; transition: background 0.15s; letter-spacing: 0.5px; font-family: 'Azeret Mono', monospace; }
+    .ack-line:hover { background: rgba(255,190,0,0.14); }
+    .ack-line.selected { background: rgba(168,255,62,0.08); border-color: var(--lime); color: var(--lime); }
+    .skill-hash { font-size: 10px; color: var(--muted); word-break: break-all; margin-top: 8px; font-family: 'Azeret Mono', monospace; }
+
+    #skill-acked-bar { display: none; align-items: center; gap: 10px; margin-top: 10px; padding: 10px 14px; border: 1px solid rgba(168,255,62,0.2); background: rgba(168,255,62,0.04); }
+    #skill-acked-bar.visible { display: flex; }
+    @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(168,255,62,0.5)} 50%{box-shadow:0 0 0 6px rgba(168,255,62,0)} }
+
+    footer { border-top: 1px solid var(--border); padding: 20px 24px; font-size: 10px; color: var(--muted); letter-spacing: 1px; display: flex; justify-content: space-between; font-family: 'Azeret Mono', monospace; background: rgba(5,6,7,0.88); backdrop-filter: blur(14px); }
+    footer a { color: var(--lime); text-decoration: none; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <canvas id="bg-canvas"></canvas>
+
+  <nav>
+    <div class="nav-logo">Simcluster</div>
+    <div class="nav-tabs">
+      <a href="/" class="nav-tab">Dashboard</a>
+      <a href="/manual.html" class="nav-tab active">Manual Ops</a>
+    </div>
+    <div class="nav-right"><span class="nav-dot"></span>LIVE</div>
+  </nav>
+
+  <main>
+    <div class="hero">
+      <div class="hero-tag"><span></span>Manual Control</div>
+      <h1>MANUAL<br><em>OPS</em></h1>
+      <p>@HallenjayArt &nbsp;//&nbsp; Direct action interface</p>
+    </div>
+
+    <div class="panel" id="gate-panel">
+      <div class="panel-head"><div class="bar bar-cyan"></div>Access Code Required</div>
+      <div class="panel-body">
+        <p style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.7;font-family:'Azeret Mono',monospace;">Enter your access code to unlock manual operations for your slot.</p>
+        <div class="input-row">
+          <input type="text" id="access-code-input" placeholder="Enter access code…" autocomplete="off" />
+          <button class="btn btn-lime" onclick="submitAccessCode()">Enter</button>
+        </div>
+        <div id="gate-status" class="status-bar status-hidden"></div>
+      </div>
+    </div>
+
+    <div id="ops-area" style="display:none;">
+
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid rgba(168,255,62,0.2);background:rgba(168,255,62,0.04);margin-bottom:12px;font-size:11px;color:var(--lime);font-family:'Azeret Mono',monospace;">
+        <span style="width:7px;height:7px;border-radius:50%;background:var(--lime);animation:pulse 1.8s infinite;display:inline-block;"></span>
+        <span>TOKEN ACTIVE</span>
+        <span id="slot-display" style="background:rgba(168,255,62,0.1);border:1px solid rgba(168,255,62,0.25);padding:2px 8px;font-size:10px;letter-spacing:1px;"></span>
+        <button class="btn btn-outline" style="margin-left:auto;padding:5px 12px;font-size:9px;" onclick="resetAuth()">Switch Slot</button>
+      </div>
+
+      <div class="panel" id="skill-panel-m">
+        <div class="panel-head"><div class="bar bar-amber"></div>Skill File — Acknowledge Before Running</div>
+        <div class="panel-body">
+          <p style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:12px;font-family:'Azeret Mono',monospace;">Load and acknowledge <strong style="color:var(--text);">skill.md</strong> to unlock all operations below.</p>
+          <button class="btn btn-amber" onclick="loadSkill()" id="skill-btn-m">Load Skill File</button>
+          <div id="skill-content-m" style="display:none;">
+            <div class="skill-text" id="skill-text-m"></div>
+            <p style="font-size:10px;color:var(--muted);margin-bottom:6px;letter-spacing:1px;text-transform:uppercase;font-family:'Azeret Mono',monospace;">Click the acknowledgement phrase:</p>
+            <div id="ack-options-m"></div>
+            <div class="skill-hash">SHA-256: <span id="skill-hash-m"></span></div>
+          </div>
+          <div id="skill-acked-bar">
+            <span style="width:7px;height:7px;border-radius:50%;background:var(--lime);animation:pulse 1.8s infinite;display:inline-block;flex-shrink:0;"></span>
+            <span style="color:var(--lime);font-size:11px;letter-spacing:1px;font-family:'Azeret Mono',monospace;">SKILL ACKNOWLEDGED</span>
+            <button class="btn btn-outline" style="margin-left:auto;padding:5px 12px;font-size:9px;" onclick="resetSkill()">Re-read</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><div class="bar"></div>Text Post</div>
+        <div class="panel-body">
+          <div class="field-group">
+            <label class="field-label">Concept IDs <span style="font-weight:400;">(comma-separated shortIds)</span></label>
+            <input type="text" id="text-concepts" placeholder="eNXWgYAn, 025YY6a2, …" />
+            <p class="hint">Use concept <code>shortId</code> values. Leave empty to use your default owned concepts.</p>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Caption / Body Text <span style="font-weight:400;">(optional)</span></label>
+            <textarea id="text-caption" placeholder="Your post text here… (leave blank for auto-generated)"></textarea>
+          </div>
+          <button class="btn btn-lime btn-full" onclick="doTextPost()" id="text-post-btn">▶&nbsp;&nbsp;Send Text Post</button>
+          <div class="result-box" id="text-result"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><div class="bar bar-purple"></div>Image Post</div>
+        <div class="panel-body">
+          <div class="field-group">
+            <label class="field-label">Concept IDs <span style="font-weight:400;">(comma-separated shortIds)</span></label>
+            <input type="text" id="img-concepts" placeholder="eNXWgYAn, 025YY6a2, …" />
+            <p class="hint">AI will generate an image using these concepts. Leave empty for defaults.</p>
+          </div>
+          <div class="field-group">
+            <label class="field-label">Caption <span style="font-weight:400;">(optional)</span></label>
+            <input type="text" id="img-caption" placeholder="Caption for the image post…" />
+          </div>
+          <button class="btn btn-purple btn-full" onclick="doImagePost()" id="img-post-btn">▶&nbsp;&nbsp;Generate &amp; Post Image</button>
+          <p style="font-size:10px;color:var(--muted);margin-top:8px;letter-spacing:0.5px;font-family:'Azeret Mono',monospace;">Image generation takes ~60–180 seconds.</p>
+          <div class="result-box" id="img-result"></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><div class="bar bar-amber"></div>Claim Bonuses</div>
+        <div class="panel-body">
+          <div class="ops-grid">
+            <div>
+              <p style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:12px;font-family:'Azeret Mono',monospace;">Claim your daily sign-in streak bonus.</p>
+              <button class="btn btn-amber btn-full" onclick="claimBonus('signin')" id="signin-btn">▶&nbsp;&nbsp;Claim Sign-In</button>
+              <div class="result-box" id="signin-result"></div>
+            </div>
+            <div>
+              <p style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:12px;font-family:'Azeret Mono',monospace;">Claim your daily billboard engagement bonus.</p>
+              <button class="btn btn-amber btn-full" onclick="claimBonus('billboard')" id="billboard-btn">▶&nbsp;&nbsp;Claim Billboard</button>
+              <div class="result-box" id="billboard-result"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><div class="bar bar-cyan"></div>Repost Trending</div>
+        <div class="panel-body">
+          <p style="font-size:11px;color:var(--muted);line-height:1.7;margin-bottom:12px;font-family:'Azeret Mono',monospace;">Fetch the for-you feed and repost the top trending post.</p>
+          <button class="btn btn-cyan btn-full" onclick="doRepost()" id="repost-btn">▶&nbsp;&nbsp;Repost Top Trending</button>
+          <div class="result-box" id="repost-result"></div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer>
+    <span>SIMCLUSTER HEARTBEAT // @HALLENJAYART</span>
+    <a href="https://simcluster.ai" target="_blank">SIMCLUSTER.AI ↗</a>
+  </footer>
+
+<script>
+  /* ── ANIMATED BACKGROUND ─────────────────────────────────────────── */
+  (function() {
+    const canvas = document.getElementById('bg-canvas');
+    const ctx    = canvas.getContext('2d');
+    function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    resize();
+    window.addEventListener('resize', resize);
+
+    const LIME  = 'rgba(176,111,255,';
+    const CYAN  = 'rgba(0,212,255,';
+    const WHITE = 'rgba(255,255,255,';
+
+    const NODES = 50;
+    const nodes = Array.from({ length: NODES }, () => ({
+      x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight,
+      vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3,
+      r: Math.random() * 1.8 + 0.5,
+      col: Math.random() > 0.5 ? LIME : (Math.random() > 0.5 ? CYAN : WHITE),
+      a: Math.random() * 0.5 + 0.2,
+    }));
+
+    const scanLines = [
+      { y: Math.random() * window.innerHeight, speed: 0.38, col: LIME,  a: 0.05 },
+      { y: Math.random() * window.innerHeight, speed: 0.22, col: CYAN,  a: 0.04 },
+    ];
+
+    const rings = [];
+    function spawnRing() {
+      rings.push({ x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight, r: 0, max: 200, col: Math.random() > 0.5 ? LIME : CYAN, a: 0.16 });
+    }
+    setInterval(spawnRing, 2400);
+    spawnRing();
+
+    const crosses = Array.from({ length: 6 }, () => ({
+      x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight,
+      size: Math.random() * 8 + 5,
+      col: Math.random() > 0.5 ? LIME : CYAN,
+      a: Math.random() * 0.12 + 0.04,
+      pulse: Math.random() * Math.PI * 2,
+    }));
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const spacing = 28;
+      for (let x = 0; x < canvas.width; x += spacing) {
+        for (let y = 0; y < canvas.height; y += spacing) {
+          ctx.beginPath(); ctx.arc(x, y, 0.8, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(26,31,40,0.9)'; ctx.fill();
+        }
+      }
+
+      scanLines.forEach(sl => {
+        sl.y += sl.speed;
+        if (sl.y > canvas.height) sl.y = -2;
+        const grad = ctx.createLinearGradient(0, sl.y - 40, 0, sl.y + 40);
+        grad.addColorStop(0, sl.col + '0)');
+        grad.addColorStop(0.5, sl.col + sl.a + ')');
+        grad.addColorStop(1, sl.col + '0)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, sl.y - 40, canvas.width, 80);
+      });
+
+      for (let i = rings.length - 1; i >= 0; i--) {
+        const rg = rings[i];
+        rg.r += 1.1; rg.a -= 0.0018;
+        if (rg.a <= 0) { rings.splice(i, 1); continue; }
+        ctx.beginPath(); ctx.arc(rg.x, rg.y, rg.r, 0, Math.PI * 2);
+        ctx.strokeStyle = rg.col + rg.a + ')'; ctx.lineWidth = 1; ctx.stroke();
+      }
+
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+          const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist < 130) {
+            ctx.beginPath(); ctx.moveTo(nodes[i].x, nodes[i].y); ctx.lineTo(nodes[j].x, nodes[j].y);
+            ctx.strokeStyle = LIME + (1 - dist / 130) * 0.1 + ')'; ctx.lineWidth = 0.6; ctx.stroke();
+          }
+        }
+      }
+
+      nodes.forEach(n => {
+        n.x += n.vx; n.y += n.vy;
+        if (n.x < 0 || n.x > canvas.width)  n.vx *= -1;
+        if (n.y < 0 || n.y > canvas.height) n.vy *= -1;
+        ctx.beginPath(); ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+        ctx.fillStyle = n.col + n.a + ')'; ctx.fill();
+      });
+
+      crosses.forEach(c => {
+        c.pulse += 0.02;
+        const aa = c.a + Math.sin(c.pulse) * 0.05;
+        ctx.strokeStyle = c.col + aa + ')'; ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(c.x - c.size, c.y); ctx.lineTo(c.x + c.size, c.y);
+        ctx.moveTo(c.x, c.y - c.size); ctx.lineTo(c.x, c.y + c.size);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.rect(c.x - c.size*0.4, c.y - c.size*0.4, c.size*0.8, c.size*0.8);
+        ctx.strokeStyle = c.col + (aa * 0.5) + ')'; ctx.stroke();
+      });
+
+      requestAnimationFrame(draw);
+    }
+    draw();
+  })();
+
+  /* ── LOGIC ────────────────────────────────────────────────────────── */
+  let currentAccessCode = localStorage.getItem('sc_access_code') || null;
+  let skillHash = localStorage.getItem('sc_skill_hash') || null;
+  let skillAck  = localStorage.getItem('sc_skill_ack')  || null;
+
+  if (currentAccessCode) { verifyAndShow(currentAccessCode); }
+
+  async function submitAccessCode() {
+    const input = document.getElementById('access-code-input').value.trim();
+    if (!input) return;
+    showGateStatus('Verifying…', 'info');
+    await verifyAndShow(input);
+  }
+
+  async function verifyAndShow(code) {
+    try {
+      const r = await fetch('/status?accessCode=' + encodeURIComponent(code));
+      const d = await r.json();
+      if (d.error === 'Invalid access code') { showGateStatus('INVALID ACCESS CODE', 'err'); return; }
+      if (!d.hasToken) { showGateStatus('NO TOKEN FOR THIS SLOT — CONNECT FIRST ON THE DASHBOARD', 'warn'); return; }
+      currentAccessCode = code;
+      localStorage.setItem('sc_access_code', code);
+      document.getElementById('gate-panel').style.display = 'none';
+      document.getElementById('ops-area').style.display   = 'block';
+      document.getElementById('slot-display').textContent = 'SLOT ' + d.slot;
+      applySkillState();
+    } catch (e) { showGateStatus('ERROR: ' + e.message, 'err'); }
+  }
+
+  function showGateStatus(msg, type) {
+    const el = document.getElementById('gate-status');
+    el.textContent = msg; el.className = 'status-bar status-' + type;
+  }
+
+  function resetAuth() { localStorage.removeItem('sc_access_code'); currentAccessCode = null; location.reload(); }
+
+  function applySkillState() {
+    const acked = document.getElementById('skill-acked-bar');
+    const content = document.getElementById('skill-content-m');
+    const btn = document.getElementById('skill-btn-m');
+    if (skillHash && skillAck) {
+      acked.classList.add('visible'); content.style.display = 'none'; if (btn) btn.style.display = 'none';
+    } else {
+      acked.classList.remove('visible'); content.style.display = 'none';
+      if (btn) { btn.style.display = ''; btn.disabled = false; btn.textContent = 'Load Skill File'; }
+    }
+  }
+
+  async function loadSkill() {
+    const btn = document.getElementById('skill-btn-m');
+    btn.disabled = true; btn.textContent = 'Loading…';
+    try {
+      const r = await fetch('/api/skill'); const d = await r.json();
+      if (!d.success) throw new Error(d.error);
+      document.getElementById('skill-text-m').textContent = d.text;
+      document.getElementById('skill-hash-m').textContent = d.hash;
+      document.getElementById('skill-content-m').style.display = 'block';
+      btn.style.display = 'none';
+      const container = document.getElementById('ack-options-m');
+      container.innerHTML = '';
+      const el = document.createElement('div');
+      el.className = 'ack-line';
+      el.textContent = '✓ Click to acknowledge: ' + d.ack;
+      el.onclick = () => {
+        el.classList.add('selected');
+        setTimeout(() => {
+          skillHash = d.hash; skillAck = d.ack;
+          localStorage.setItem('sc_skill_hash', d.hash); localStorage.setItem('sc_skill_ack', d.ack);
+          applySkillState();
+        }, 400);
+      };
+      container.appendChild(el);
+    } catch (e) { btn.disabled = false; btn.textContent = 'Load Skill File'; alert('Failed: ' + e.message); }
+  }
+
+  function resetSkill() {
+    skillHash = null; skillAck = null;
+    localStorage.removeItem('sc_skill_hash'); localStorage.removeItem('sc_skill_ack');
+    applySkillState();
+  }
+
+  function guardCheck() {
+    if (!skillHash || !skillAck) { alert('Please load and acknowledge the skill file first.'); return false; }
+    return true;
+  }
+
+  function showResult(id, msg, isError = false) {
+    const el = document.getElementById(id);
+    el.textContent = msg; el.className = 'result-box visible' + (isError ? ' error' : '');
+  }
+
+  function setBtn(id, loading, defaultText) {
+    const b = document.getElementById(id);
+    b.disabled = loading; b.textContent = loading ? '⏳  Running…' : defaultText;
+  }
+
+  async function doTextPost() {
+    if (!guardCheck()) return;
+    const concepts = document.getElementById('text-concepts').value.trim();
+    const caption  = document.getElementById('text-caption').value.trim();
+    setBtn('text-post-btn', true, '▶  Send Text Post');
+    showResult('text-result', 'Sending post…');
+    try {
+      const r = await fetch('/api/manual/text', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessCode: currentAccessCode, skillHash, skillAck, concepts, caption }) });
+      const d = await r.json();
+      if (d.success) showResult('text-result', '✓ Post sent!\n\n' + JSON.stringify(d.data || d, null, 2));
+      else showResult('text-result', '✗ Failed: ' + (d.error || JSON.stringify(d)), true);
+    } catch (e) { showResult('text-result', '✗ Network error: ' + e.message, true); }
+    setBtn('text-post-btn', false, '▶  Send Text Post');
+  }
+
+  async function doImagePost() {
+    if (!guardCheck()) return;
+    const concepts = document.getElementById('img-concepts').value.trim();
+    const caption  = document.getElementById('img-caption').value.trim();
+    setBtn('img-post-btn', true, '▶  Generate & Post Image');
+    showResult('img-result', 'Generating image… this may take 60–180 seconds.');
+    try {
+      const r = await fetch('/api/manual/image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessCode: currentAccessCode, skillHash, skillAck, concepts, caption }) });
+      const d = await r.json();
+      if (d.success) showResult('img-result', '✓ Image post sent!\n\n' + JSON.stringify(d.data || d, null, 2));
+      else showResult('img-result', '✗ Failed: ' + (d.error || JSON.stringify(d)), true);
+    } catch (e) { showResult('img-result', '✗ Network error: ' + e.message, true); }
+    setBtn('img-post-btn', false, '▶  Generate & Post Image');
+  }
+
+  async function claimBonus(type) {
+    if (!guardCheck()) return;
+    const btnId    = type === 'signin' ? 'signin-btn' : 'billboard-btn';
+    const resultId = type === 'signin' ? 'signin-result' : 'billboard-result';
+    const label    = type === 'signin' ? '▶  Claim Sign-In' : '▶  Claim Billboard';
+    setBtn(btnId, true, label);
+    showResult(resultId, 'Claiming bonus…');
+    try {
+      const r = await fetch('/api/manual/bonus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessCode: currentAccessCode, skillHash, skillAck, type }) });
+      const d = await r.json();
+      if (d.success) showResult(resultId, '✓ ' + (d.message || 'Bonus claimed!') + '\n\n' + JSON.stringify(d.data || {}, null, 2));
+      else showResult(resultId, '✗ ' + (d.error || 'Failed'), true);
+    } catch (e) { showResult(resultId, '✗ Network error: ' + e.message, true); }
+    setBtn(btnId, false, label);
+  }
+
+  async function doRepost() {
+    if (!guardCheck()) return;
+    setBtn('repost-btn', true, '▶  Repost Top Trending');
+    showResult('repost-result', 'Fetching feed and reposting…');
+    try {
+      const r = await fetch('/api/manual/repost', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accessCode: currentAccessCode, skillHash, skillAck }) });
+      const d = await r.json();
+      if (d.success) showResult('repost-result', '✓ Reposted!\n\n' + JSON.stringify(d.data || d, null, 2));
+      else showResult('repost-result', '✗ Failed: ' + (d.error || JSON.stringify(d)), true);
+    } catch (e) { showResult('repost-result', '✗ Network error: ' + e.message, true); }
+    setBtn('repost-btn', false, '▶  Repost Top Trending');
+  }
+</script>
+</body>
+</html>

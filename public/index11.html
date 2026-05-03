@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Simcluster Agent — @HallenjayArt</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:      #0a0c10;
+      --panel:   #111520;
+      --border:  #1e2535;
+      --accent:  #00e5ff;
+      --accent2: #7c3aed;
+      --green:   #00ff88;
+      --warn:    #ffb800;
+      --danger:  #ff4455;
+      --text:    #e2e8f0;
+      --muted:   #64748b;
+      --radius:  10px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 60px;
+    }
+    .header { text-align: center; margin-bottom: 36px; }
+    .header .badge {
+      display: inline-block;
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      color: #fff;
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: 99px;
+      margin-bottom: 14px;
+    }
+    .header h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(24px, 5vw, 36px);
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 40%, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 6px;
+    }
+    .header p { color: var(--muted); font-size: 13px; }
+    .card {
+      width: 100%;
+      max-width: 540px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 28px 24px;
+      margin-bottom: 18px;
+    }
+    .card-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--accent);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .card-title .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+    .steps { display: flex; flex-direction: column; gap: 14px; }
+    .step {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 14px;
+      background: rgba(0,229,255,0.04);
+      border: 1px solid rgba(0,229,255,0.1);
+      border-radius: 8px;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-weight: 800; font-size: 13px; color: #fff;
+    }
+    .step-body strong { display: block; font-size: 13px; color: #fff; margin-bottom: 4px; }
+    .step-body span { font-size: 12px; color: var(--muted); line-height: 1.6; }
+    .step-body a { color: var(--accent); text-decoration: none; }
+    .step-body a:hover { text-decoration: underline; }
+    #onboarding-section.hidden { display: none; }
+    .input-row { display: flex; gap: 10px; margin-top: 6px; }
+    input[type="text"] {
+      flex: 1;
+      background: #0d1117;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      padding: 11px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus { border-color: var(--accent); }
+    input[type="text"]::placeholder { color: var(--muted); }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 11px 20px;
+      border-radius: 8px;
+      border: none;
+      font-family: 'Space Mono', monospace;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      white-space: nowrap;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) { opacity: 0.88; }
+    .btn-run {
+      width: 100%;
+      justify-content: center;
+      background: linear-gradient(135deg, #00b4d8, var(--green));
+      color: #0a0c10;
+      font-size: 15px;
+      padding: 15px;
+    }
+    .btn-run:hover:not(:disabled) { opacity: 0.88; }
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 12px;
+      padding: 8px 14px;
+    }
+    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+    #status {
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      margin-top: 4px;
+    }
+    .status-ok   { color: var(--green); }
+    .status-warn { color: var(--warn); }
+    .status-err  { color: var(--danger); }
+    .status-info { color: var(--accent); }
+    #connected-banner {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      background: rgba(0,255,136,0.08);
+      border: 1px solid rgba(0,255,136,0.25);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--green);
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    #connected-banner.visible { display: flex; }
+    #connected-banner .pulse {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 1.8s infinite;
+      flex-shrink: 0;
+    }
+    #slot-label {
+      background: rgba(0,229,255,0.12);
+      border: 1px solid rgba(0,229,255,0.3);
+      border-radius: 4px;
+      color: var(--accent);
+      font-size: 11px;
+      padding: 2px 8px;
+    }
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(0,255,136,0.5); }
+      50%      { box-shadow: 0 0 0 6px rgba(0,255,136,0); }
+    }
+    #logs {
+      background: #070910;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: #7ee787;
+      padding: 14px;
+      height: 280px;
+      overflow-y: auto;
+      font-size: 11.5px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-all;
+      margin-top: 12px;
+    }
+    #logs-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+    }
+    .logs-label {
+      font-family: 'Syne', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    #result-strip {
+      display: none;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 14px;
+    }
+    #result-strip.visible { display: grid; }
+    .stat-box {
+      background: rgba(0,229,255,0.05);
+      border: 1px solid rgba(0,229,255,0.12);
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-align: center;
+    }
+    .stat-box .val {
+      font-family: 'Syne', sans-serif;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--accent);
+      display: block;
+    }
+    .stat-box .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+    footer { margin-top: 32px; font-size: 11px; color: var(--muted); text-align: center; }
+    #skill-panel { margin-bottom: 18px; }
+    #skill-panel.hidden { display: none; }
+    #skill-acknowledged { display: none; }
+    #skill-acknowledged.visible { display: flex; }
+    .skill-text {
+      background: #070910;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: #94a3b8;
+      font-size: 11px;
+      line-height: 1.8;
+      padding: 14px;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      margin: 12px 0;
+    }
+    .ack-line {
+      background: rgba(124,58,237,0.12);
+      border: 1px solid rgba(124,58,237,0.35);
+      border-radius: 6px;
+      color: #c4b5fd;
+      font-size: 12px;
+      padding: 10px 14px;
+      margin: 8px 0;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .ack-line:hover { background: rgba(124,58,237,0.25); }
+    .ack-line.selected {
+      background: rgba(0,255,136,0.1);
+      border-color: var(--green);
+      color: var(--green);
+    }
+    .skill-hash { font-size: 10px; color: var(--muted); word-break: break-all; margin-top: 8px; }
+    footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="badge">⚡ Agent Dashboard</div>
+    <h1>Simcluster Heartbeat</h1>
+    <p>@HallenjayArt automated daily strategy</p>
+  </div>
+
+  <!-- How to Use -->
+  <div class="card">
+    <div class="card-title"><span class="dot"></span>How to Use</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <strong>Enter your access code</strong>
+          <span>You were given a personal access code when you joined. Enter it below — this identifies your slot and keeps your account separate from other users.</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <strong>First time? Connect your Simcluster account</strong>
+          <span>Visit <a href="https://simcluster.ai/agent/connect" target="_blank">simcluster.ai/agent/connect</a>, copy your one-time code, paste it and click <em>Connect</em>. Only needed once per slot.</span>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <strong>Already connected? Just run the heartbeat</strong>
+          <span>Your token is saved. Click <em>▶ Run Heartbeat</em> to fire the full daily strategy. The scheduler also runs it automatically every 24 hours.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main card -->
+  <div class="card">
+
+    <!-- Access code gate -->
+    <div id="access-gate">
+      <div class="card-title"><span class="dot"></span>Your Access Code</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.7;">
+        Enter the access code you were given. This identifies your personal slot.
+      </p>
+      <div class="input-row">
+        <input type="text" id="access-code-input" placeholder="Enter it here" autocomplete="off" />
+        <button class="btn btn-primary" onclick="submitAccessCode()">Enter</button>
+      </div>
+    </div>
+
+    <!-- Main panel (shown after valid access code) -->
+    <div id="main-panel" style="display:none;">
+
+      <!-- Connected banner -->
+      <div id="connected-banner">
+        <span class="pulse"></span>
+        <span>Token active — agent connected</span>
+        <span id="slot-label"></span>
+        <button class="btn btn-ghost" style="margin-left:auto;" onclick="showReconnect()">Reconnect</button>
+      </div>
+
+      <!-- Onboarding -->
+      <div id="onboarding-section">
+        <div class="card-title"><span class="dot"></span>Connect Simcluster Account</div>
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.7;">
+          Get your one-time code from
+          <a href="https://simcluster.ai/agent/connect" target="_blank">simcluster.ai/agent/connect</a>
+          then paste it here.
+        </p>
+        <div class="input-row">
+          <input type="text" id="code" placeholder="Paste your one-time Simcluster code…" autocomplete="off" />
+          <button class="btn btn-primary" onclick="connect()" id="connect-btn">Connect</button>
+        </div>
+      </div>
+
+      <!-- Skill Acknowledgement (shown after access code + connect) -->
+      <div id="skill-panel" style="margin-top:18px;padding:18px;background:rgba(255,184,0,0.05);border:1px solid rgba(255,184,0,0.2);border-radius:8px;">
+        <div class="card-title" style="margin-bottom:12px;"><span class="dot" style="background:var(--warn);box-shadow:0 0 8px var(--warn);"></span>Step 2 — Read &amp; Acknowledge Skill File</div>
+        <p style="font-size:12px;color:var(--muted);line-height:1.7;margin-bottom:12px;">
+          Simcluster requires you to read <strong style="color:var(--text);">skill.md</strong> and acknowledge it before running the agent.
+          Do this once per session — click <em>Load Skill File</em>, read it, then click the acknowledgement phrase.
+        </p>
+        <button class="btn btn-primary" onclick="loadSkillFile()" id="skill-load-btn">📄 Load Skill File</button>
+        <div id="skill-content" style="display:none;">
+          <div class="skill-text" id="skill-text"></div>
+          <p style="font-size:11px;color:var(--muted);margin-bottom:6px;">👇 Read the file above, then click the line that is the acknowledgement phrase:</p>
+          <div id="ack-options"></div>
+          <div class="skill-hash">SHA-256: <span id="skill-hash-display"></span></div>
+        </div>
+        <div id="skill-acknowledged" style="display:none;align-items:center;gap:10px;margin-top:10px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 1.8s infinite;display:inline-block;flex-shrink:0;"></span>
+          <span style="color:var(--green);font-size:12px;">Skill acknowledged — Run button unlocked</span>
+          <button class="btn btn-ghost" style="margin-left:auto;" onclick="resetSkill()">Re-read</button>
+        </div>
+      </div>
+
+      <!-- Status -->
+      <p id="status" class="status-info" style="margin-top:16px;"></p>
+
+      <!-- Run button -->
+      <div style="margin-top:16px;">
+        <button class="btn btn-run" onclick="runHeartbeat()" id="run-btn">▶ &nbsp;Run Heartbeat</button>
+      </div>
+
+      <!-- Stats -->
+      <div id="result-strip">
+        <div class="stat-box"><span class="val" id="res-delta">—</span><span class="lbl">Clout Δ</span></div>
+        <div class="stat-box"><span class="val" id="res-posts">—</span><span class="lbl">Posts Made</span></div>
+        <div class="stat-box"><span class="val" id="res-tips">—</span><span class="lbl">Tips Sent (¢)</span></div>
+      </div>
+
+      <!-- Logs -->
+      <div id="logs-header">
+        <span class="logs-label">📟 Output Logs</span>
+        <button class="btn btn-ghost" onclick="clearLogs()">Clear</button>
+      </div>
+      <pre id="logs">Waiting for run…</pre>
+
+    </div><!-- /main-panel -->
+  </div>
+
+  <footer>
+    Simcluster Heartbeat &nbsp;·&nbsp;
+    <a href="https://simcluster.ai" target="_blank">simcluster.ai</a>
+  </footer>
+
+<script>
+  // ── skill state ────────────────────────────────────────────────────────────
+  let skillHash = localStorage.getItem('sc_skill_hash') || null;
+  let skillAck  = localStorage.getItem('sc_skill_ack')  || null;
+
+  function applySkillState() {
+    const acked   = document.getElementById('skill-acknowledged');
+    const content = document.getElementById('skill-content');
+    const loadBtn = document.getElementById('skill-load-btn');
+    if (!acked) return; // panel not in DOM yet (pre-access-code)
+    if (skillHash && skillAck) {
+      acked.style.display   = 'flex';
+      content.style.display = 'none';
+      if (loadBtn) loadBtn.style.display = 'none';
+    } else {
+      acked.style.display   = 'none';
+      content.style.display = 'none';
+      if (loadBtn) { loadBtn.style.display = ''; loadBtn.disabled = false; loadBtn.textContent = '📄 Load Skill File'; }
+    }
+  }
+  applySkillState();
+
+  async function loadSkillFile() {
+    const btn = document.getElementById('skill-load-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Loading…';
+    try {
+      const r = await fetch('/api/skill');
+      const d = await r.json();
+      if (!d.success) throw new Error(d.error);
+
+      document.getElementById('skill-text').textContent = d.text;
+      document.getElementById('skill-hash-display').textContent = d.hash;
+      document.getElementById('skill-content').style.display = 'block';
+      btn.style.display = 'none';
+
+      // ack phrase is known — show it and let user confirm with one click
+      const container = document.getElementById('ack-options');
+      container.innerHTML = '';
+      const el = document.createElement('div');
+      el.className = 'ack-line';
+      el.textContent = '✓ Click to acknowledge: ' + d.ack;
+      el.onclick = () => selectAck(d.ack, d.hash, el);
+      container.appendChild(el);
+    } catch (e) {
+      btn.disabled = false;
+      btn.textContent = '📄 Load Skill File';
+      alert('Failed to load skill.md: ' + e.message);
+    }
+  }
+
+  function selectAck(ack, hash, el) {
+    document.querySelectorAll('.ack-line').forEach(x => x.classList.remove('selected'));
+    el.classList.add('selected');
+    setTimeout(() => {
+      skillHash = hash;
+      skillAck  = ack;
+      localStorage.setItem('sc_skill_hash', hash);
+      localStorage.setItem('sc_skill_ack', ack);
+      applySkillState();
+    }, 400);
+  }
+
+  function resetSkill() {
+    skillHash = null; skillAck = null;
+    localStorage.removeItem('sc_skill_hash');
+    localStorage.removeItem('sc_skill_ack');
+    document.getElementById('skill-load-btn').style.display = '';
+    document.getElementById('skill-load-btn').disabled = false;
+    document.getElementById('skill-load-btn').textContent = '📄 Load Skill File';
+    document.getElementById('skill-content').style.display = 'none';
+    applySkillState();
+  }
+
+  // ── access code + main state ───────────────────────────────────────────────
+  let currentAccessCode = localStorage.getItem('sc_access_code') || null;
+
+  // On load: if we have a stored access code, skip the gate and verify
+  if (currentAccessCode) {
+    showMainPanel();
+    checkStatus();
+  }
+
+  // ── access code gate ───────────────────────────────────────────────────────
+  async function submitAccessCode() {
+    const input = document.getElementById('access-code-input').value.trim();
+    if (!input) return;
+
+    // verify the code is valid via /status
+    try {
+      const r = await fetch('/status?accessCode=' + encodeURIComponent(input));
+      const d = await r.json();
+      if (d.error === 'Invalid access code') {
+        alert('❌ Invalid access code. Please check and try again.');
+        return;
+      }
+      currentAccessCode = input;
+      localStorage.setItem('sc_access_code', input);
+      showMainPanel();
+      if (d.hasToken) {
+        applyConnectedState(true, d.slot);
+        setStatus('✅ Agent connected — ready to run', 'ok');
+      } else {
+        applyConnectedState(false);
+        setStatus('👆 Connect your Simcluster account to get started', 'info');
+      }
+    } catch (e) {
+      alert('Could not verify access code: ' + e.message);
+    }
+  }
+
+  function showMainPanel() {
+    document.getElementById('access-gate').style.display  = 'none';
+    document.getElementById('main-panel').style.display   = 'block';
+    applySkillState(); // apply skill state now that panel is visible
+  }
+
+  async function checkStatus() {
+    try {
+      const r = await fetch('/status?accessCode=' + encodeURIComponent(currentAccessCode));
+      const d = await r.json();
+      if (d.error === 'Invalid access code') {
+        // stored code is now invalid — reset
+        localStorage.removeItem('sc_access_code');
+        currentAccessCode = null;
+        location.reload();
+        return;
+      }
+      showMainPanel();
+      applyConnectedState(d.hasToken, d.slot);
+      setStatus(d.hasToken ? '✅ Agent connected — ready to run' : '👆 Connect your Simcluster account', 
+                d.hasToken ? 'ok' : 'info');
+    } catch (_) {
+      showMainPanel();
+    }
+  }
+
+  // ── ui helpers ─────────────────────────────────────────────────────────────
+  function applyConnectedState(connected, slot) {
+    const banner  = document.getElementById('connected-banner');
+    const onboard = document.getElementById('onboarding-section');
+    const slotEl  = document.getElementById('slot-label');
+    if (connected) {
+      banner.classList.add('visible');
+      onboard.classList.add('hidden');
+      if (slot) slotEl.textContent = 'slot ' + slot;
+    } else {
+      banner.classList.remove('visible');
+      onboard.classList.remove('hidden');
+      slotEl.textContent = '';
+    }
+  }
+
+  function showReconnect() {
+    document.getElementById('onboarding-section').classList.remove('hidden');
+    document.getElementById('code').focus();
+  }
+
+  function setStatus(msg, type = 'info') {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className   = 'status-' + type;
+  }
+
+  function clearLogs() {
+    document.getElementById('logs').textContent = '';
+    document.getElementById('result-strip').classList.remove('visible');
+  }
+
+  function setRunning(yes) {
+    const btn = document.getElementById('run-btn');
+    btn.disabled    = yes;
+    btn.textContent = yes ? '⏳  Running…' : '▶  Run Heartbeat';
+  }
+
+  // ── connect ────────────────────────────────────────────────────────────────
+  async function connect() {
+    const code = document.getElementById('code').value.trim();
+    if (!code) { setStatus('⚠️ Paste your one-time Simcluster code first', 'warn'); return; }
+
+    const btn     = document.getElementById('connect-btn');
+    btn.disabled  = true;
+    btn.textContent = 'Connecting…';
+    setStatus('⏳ Exchanging code…', 'info');
+
+    try {
+      const res  = await fetch('/api/exchange', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, accessCode: currentAccessCode }),
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        setStatus('❌ Failed: ' + (data.error || 'Unknown error'), 'err');
+        btn.disabled    = false;
+        btn.textContent = 'Connect';
+        return;
+      }
+
+      applyConnectedState(true, data.slot);
+      setStatus('✅ Connected! You can now run the heartbeat.', 'ok');
+
+    } catch (err) {
+      setStatus('❌ Error: ' + err.message, 'err');
+      btn.disabled    = false;
+      btn.textContent = 'Connect';
+    }
+  }
+
+  // ── heartbeat ──────────────────────────────────────────────────────────────
+  async function runHeartbeat() {
+   if (!skillHash || !skillAck) {
+  console.warn('Skill not acknowledged — continuing anyway');
+  setStatus('⚠️ Skill not acknowledged — attempting run anyway', 'warn');
+}
+    setRunning(true);
+    setStatus('⚡ Running heartbeat…', 'info');
+    document.getElementById('logs').textContent = '';
+    document.getElementById('result-strip').classList.remove('visible');
+
+    try {
+      const res  = await fetch('/api/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessCode: currentAccessCode, skillHash, skillAck }),
+      });
+      const data = await res.json();
+
+      document.getElementById('logs').textContent = (data.logs || []).join('\n');
+      document.getElementById('logs').scrollTop   = 9999;
+
+      if (data.result) {
+        const r = data.result;
+        document.getElementById('res-delta').textContent = (r.delta >= 0 ? '+' : '') + (r.delta ?? '—');
+        document.getElementById('res-posts').textContent = r.posts?.length ?? '—';
+        document.getElementById('res-tips').textContent  = r.tipping?.totalCents ?? '—';
+        document.getElementById('result-strip').classList.add('visible');
+      }
+
+      if (!data.success && /no bearer token/i.test(data.error || '')) {
+        applyConnectedState(false);
+        setStatus('⚠️ No token found — please reconnect your account', 'warn');
+      } else if (!data.success && /invalid access code/i.test(data.error || '')) {
+        localStorage.removeItem('sc_access_code');
+        setStatus('❌ Access code rejected — refresh and re-enter', 'err');
+      } else {
+        setStatus(data.success ? '✅ Done!' : '⚠️ Completed with issues — check logs',
+                  data.success ? 'ok' : 'warn');
+      }
+    } catch (err) {
+      setStatus('❌ Network error: ' + err.message, 'err');
+    }
+
+    setRunning(false);
+  }
+</script>
+</body>
+</html>
